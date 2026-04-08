@@ -1,0 +1,6 @@
+dn: uid=testuser,ou=people,dc=acwireless,dc=iucaa,dc=in
+objectClass: inetOrgPerson
+sn: User
+cn: Test User
+uid: testuser
+userPassword: 1234

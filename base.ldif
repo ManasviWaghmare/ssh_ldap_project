@@ -1,0 +1,4 @@
+dn: ou=people,dc=acwireless,dc=iucaa,dc=in
+objectClass: organizationalUnit
+ou: people
+
