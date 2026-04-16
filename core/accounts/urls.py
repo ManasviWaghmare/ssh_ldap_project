@@ -11,6 +11,15 @@ urlpatterns = [
     path('change-password/', views.change_password, name='change_password'),
     path('keys/<str:username>/', views.authorized_keys, name='authorized_keys'),
 
+<<<<<<< HEAD
+=======
+    # SSH Key Management
+    path('ssh-keys/add/', views.add_ssh_key, name='add_ssh_key'),
+    path('ssh-keys/validate-ajax/', views.validate_ssh_key_ajax, name='validate_ssh_key_ajax'),
+    path('ssh-keys/<int:key_id>/edit/', views.edit_ssh_key, name='edit_ssh_key'),
+    path('ssh-keys/<int:key_id>/delete/', views.delete_ssh_key, name='delete_ssh_key'),
+
+>>>>>>> 1126c2b (Added SSH key validation with cryptographic checks)
     # User Management (Staff only)
     path('users/', views.user_list, name='user_list'),
     path('users/add/', views.add_user, name='add_user'),

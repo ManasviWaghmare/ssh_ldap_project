@@ -2,10 +2,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash, authenticate
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.models import User
 from .models import UserProfile
 from .ldap_sync import create_or_update_ldap_user, delete_ldap_user
+import hashlib
+import base64
 
 
 def is_admin(user):
@@ -51,6 +53,84 @@ def profile(request):
         'users': users
     })
 
+<<<<<<< HEAD
+=======
+@login_required
+def add_ssh_key(request):
+    if request.method == 'POST':
+        name = request.POST.get('key_name', '').strip()
+        content = request.POST.get('key_content', '').strip()
+        
+        key = SSHKey(user=request.user, name=name, key_content=content)
+        try:
+            key.full_clean() # Runs validation
+            key.save()
+            messages.success(request, 'SSH Key added successfully.')
+            
+            # Sync to LDAP if enabled
+            if hasattr(request.user, 'profile') and request.user.profile.sync_to_ldap:
+                result = create_or_update_ldap_user(request.user)
+                if not result:
+                    messages.warning(request, 'Key saved locally, but LDAP sync failed.')
+                    
+        except ValidationError as e:
+            for message in e.messages:
+                messages.error(request, message)
+    return redirect('profile')
+
+@login_required
+def validate_ssh_key_ajax(request):
+    if request.method == 'POST':
+        key_content = request.POST.get('key_content', '').strip()
+        try:
+            from .models import validate_ssh_key
+            validate_ssh_key(key_content)
+            
+            parts = key_content.split()
+            if len(parts) >= 2:
+                try:
+                    key_data = parts[1]
+                    key_bytes = base64.b64decode(key_data)
+                    fp_bytes = hashlib.sha256(key_bytes).digest()
+                    fingerprint = "SHA256:" + base64.b64encode(fp_bytes).decode('ascii').rstrip('=')
+                    return JsonResponse({'valid': True, 'fingerprint': fingerprint})
+                except Exception as ex:
+                    return JsonResponse({'valid': False, 'error': 'Invalid base64 key data.'})
+            else:
+                return JsonResponse({'valid': False, 'error': 'Invalid key format.'})
+        except ValidationError as e:
+            return JsonResponse({'valid': False, 'error': getattr(e, 'message', str(e))})
+    return JsonResponse({'valid': False, 'error': 'Invalid request.'})
+
+@login_required
+def edit_ssh_key(request, key_id):
+    key = get_object_or_404(SSHKey, id=key_id, user=request.user)
+    if request.method == 'POST':
+        key.name = request.POST.get('key_name', '').strip()
+        key.key_content = request.POST.get('key_content', '').strip()
+        try:
+            key.full_clean()
+            key.save()
+            messages.success(request, 'SSH Key updated successfully.')
+        except ValidationError as e:
+            for message in e.messages:
+                messages.error(request, message)
+    return redirect('profile')
+
+@login_required
+def delete_ssh_key(request, key_id):
+    key = get_object_or_404(SSHKey, id=key_id, user=request.user)
+    if request.method == 'POST':
+        key.delete()
+        messages.success(request, 'SSH Key deleted successfully.')
+        
+        # Sync to LDAP if enabled
+        if hasattr(request.user, 'profile') and request.user.profile.sync_to_ldap:
+            create_or_update_ldap_user(request.user)
+            
+    return redirect('profile')
+
+>>>>>>> 1126c2b (Added SSH key validation with cryptographic checks)
 
 def authorized_keys(request, username):
     """

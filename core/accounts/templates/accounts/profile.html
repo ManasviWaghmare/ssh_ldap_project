@@ -97,6 +97,7 @@
             </div>
         </div>
 
+<<<<<<< HEAD
         {% if users %}
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
@@ -147,10 +148,168 @@
                 </tbody>
             </table>
         </div>
+=======
+        <!-- Add Key Form (hidden by default) -->
+        <div id="add-key-form" style="display: none; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h4 style="color: #e2e8f0; margin: 0 0 1rem;">Add New SSH Key</h4>
+            <form id="ssh-key-form" method="post" action="{% url 'add_ssh_key' %}" onsubmit="return handleAddKeySubmit(event);">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label">Key Label <span style="color: #64748b;">(optional, e.g. "Work Laptop")</span></label>
+                    <input type="text" name="key_name" class="form-control" placeholder="My Laptop">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Key Content <span style="color: #ef4444;">*</span></label>
+                    <textarea name="key_content" rows="4" class="form-control" placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... user@machine" id="add-key-content" oninput="validateKeyFormat(this, 'add-key-error')"></textarea>
+                    <div id="add-key-error" style="color: #ef4444; font-size: 0.8rem; margin-top: 0.3rem; display: none;">
+                        ⚠ Invalid format. Key must start with ssh-rsa, ssh-ed25519, or ecdsa-sha2-*.
+                    </div>
+                    <div class="help-text">Paste content of <code>~/.ssh/id_rsa.pub</code> or <code>~/.ssh/id_ed25519.pub</code></div>
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button type="submit" class="btn btn-primary">Save Key</button>
+                    <button type="button" onclick="document.getElementById('add-key-form').style.display='none';" class="btn" style="background: rgba(255,255,255,0.07); color: #94a3b8;">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Confirmation Modal Overlay -->
+        <div id="ssh-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;">
+            <div class="glass-container" style="background: #1e293b; max-width: 450px; width: 90%; padding: 2rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);">
+                <h3 style="margin-top: 0; color: #e2e8f0; font-size: 1.3rem;">Confirm SSH Key</h3>
+                <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">Please verify this fingerprint matches your private key. <br>The key will be saved to the database and synced to LDAP.</p>
+                <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; color: #38bdf8; word-break: break-all; margin-bottom: 1.5rem; border: 1px solid rgba(56, 189, 248, 0.2);" id="modal-fingerprint">
+                    SHA256:...
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="document.getElementById('ssh-confirm-modal').style.display='none';" class="btn" style="background: rgba(255,255,255,0.07); color: #94a3b8;">Cancel</button>
+                    <button type="button" onclick="document.getElementById('ssh-key-form').submit();" class="btn btn-primary" style="background: #10b981; border: none;">Confirm & Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Existing Keys List -->
+        {% if ssh_keys %}
+            {% for key in ssh_keys %}
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem;">
+
+                <!-- View Mode -->
+                <div id="view-{{ key.id }}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                                <span style="color: #e2e8f0; font-weight: 600; font-size: 0.9rem;">{{ key.name|default:"Unnamed Key" }}</span>
+                                <span style="color: #475569; font-size: 0.75rem;">· Added {{ key.created_at|date:"M d, Y" }}</span>
+                            </div>
+                            <code style="display: block; color: #94a3b8; font-size: 0.78rem; word-break: break-all; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 0.6rem; border-radius: 6px;">{{ key.key_content|truncatechars:120 }}</code>
+                        </div>
+                        <div style="display: flex; gap: 0.4rem; flex-shrink: 0;">
+                            <button onclick="document.getElementById('view-{{ key.id }}').style.display='none'; document.getElementById('edit-{{ key.id }}').style.display='block';"
+                                class="btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: rgba(96,165,250,0.1); color: #60a5fa; border: 1px solid rgba(96,165,250,0.2);">
+                                Edit
+                            </button>
+                            <form method="post" action="{% url 'delete_ssh_key' key.id %}" onsubmit="return confirm('Delete this SSH key?');" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Mode (hidden by default) -->
+                <div id="edit-{{ key.id }}" style="display: none;">
+                    <form method="post" action="{% url 'edit_ssh_key' key.id %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label class="form-label">Key Label</label>
+                            <input type="text" name="key_name" class="form-control" value="{{ key.name }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Key Content</label>
+                            <textarea name="key_content" rows="4" class="form-control" id="edit-content-{{ key.id }}" oninput="validateKeyFormat(this, 'edit-error-{{ key.id }}')">{{ key.key_content }}</textarea>
+                            <div id="edit-error-{{ key.id }}" style="color: #ef4444; font-size: 0.8rem; margin-top: 0.3rem; display: none;">
+                                ⚠ Invalid format. Key must start with ssh-rsa, ssh-ed25519, or ecdsa-sha2-*.
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="submit" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Save Changes</button>
+                            <button type="button" onclick="document.getElementById('edit-{{ key.id }}').style.display='none'; document.getElementById('view-{{ key.id }}').style.display='block';"
+                                class="btn" style="padding: 0.4rem 1rem; font-size: 0.85rem; background: rgba(255,255,255,0.07); color: #94a3b8;">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+            {% endfor %}
+>>>>>>> 1126c2b (Added SSH key validation with cryptographic checks)
         {% else %}
             <p style="color: #94a3b8; text-align: center; padding: 2rem 0;">No users found. Click "Add User" to create one.</p>
         {% endif %}
     </div>
     {% endif %}
 </div>
+<<<<<<< HEAD
+=======
+
+<script>
+function validateKeyFormat(textarea, errorId) {
+    var val = textarea.value.trim();
+    var validPrefixes = ['ssh-rsa ', 'ssh-ed25519 ', 'ecdsa-sha2-nistp256 ', 'ecdsa-sha2-nistp384 ', 'ecdsa-sha2-nistp521 ', 'ssh-dss '];
+    var errorEl = document.getElementById(errorId);
+    if (val.length > 0 && !validPrefixes.some(function(p) { return val.startsWith(p); })) {
+        errorEl.style.display = 'block';
+        textarea.style.borderColor = '#ef4444';
+    } else {
+        errorEl.style.display = 'none';
+        textarea.style.borderColor = '';
+    }
+}
+
+function handleAddKeySubmit(event) {
+    event.preventDefault();
+    
+    var form = document.getElementById('ssh-key-form');
+    var formData = new FormData(form);
+    var errorEl = document.getElementById('add-key-error');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var originalBtnText = submitBtn.innerHTML;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Validating...';
+    
+    fetch('{% url "validate_ssh_key_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        
+        if (data.valid) {
+            errorEl.style.display = 'none';
+            document.getElementById('modal-fingerprint').innerText = data.fingerprint;
+            document.getElementById('ssh-confirm-modal').style.display = 'flex';
+        } else {
+            errorEl.style.display = 'block';
+            errorEl.innerText = '⚠ ' + data.error;
+            document.getElementById('add-key-content').style.borderColor = '#ef4444';
+        }
+    })
+    .catch(err => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        errorEl.style.display = 'block';
+        errorEl.innerText = '⚠ Error connecting to server for validation.';
+        console.error(err);
+    });
+    
+    return false;
+}
+</script>
+>>>>>>> 1126c2b (Added SSH key validation with cryptographic checks)
 {% endblock %}

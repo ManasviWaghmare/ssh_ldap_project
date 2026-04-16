@@ -43,15 +43,43 @@ def create_or_update_ldap_user(user, raw_password=None):
         attrs['mail'] = [user.email.encode('utf-8')]
     if raw_password:
         attrs['userPassword'] = [raw_password.encode('utf-8')]
-        
+    # SSH Keys handling
+    if hasattr(user, 'profile') and user.profile.ssh_enabled:
+        ssh_keys = [k.key_content.encode('utf-8') for k in user.ssh_keys.all()]
+        if ssh_keys:
+            attrs['objectClass'].append(b'ldapPublicKey')
+            attrs['sshPublicKey'] = ssh_keys
+
     try:
         # Check if user exists
-        con.search_s(dn, ldap.SCOPE_BASE)
+        results = con.search_s(dn, ldap.SCOPE_BASE)
         # Exists, perform modify
-        # Note: A full robust sync would update changed fields.
-        # For simplicity, we only create if they don't exist.
-        logger.info(f"User {username} already exists in LDAP.")
+        existing_entry = results[0][1]
+        modifications = []
+        
+        # Compare and update objectClass
+        current_oc = existing_entry.get('objectClass', [])
+        new_oc = attrs['objectClass']
+        if set(current_oc) != set(new_oc):
+            modifications.append((ldap.MOD_REPLACE, 'objectClass', new_oc))
+            
+        # Compare and update simple attributes
+        for attr in ['sn', 'cn', 'givenName', 'mail', 'userPassword', 'sshPublicKey']:
+            new_val = attrs.get(attr, [])
+            old_val = existing_entry.get(attr, [])
+            if set(new_val) != set(old_val):
+                if new_val:
+                    modifications.append((ldap.MOD_REPLACE, attr, new_val))
+                elif old_val:
+                    modifications.append((ldap.MOD_DELETE, attr, None))
+                    
+        if modifications:
+            con.modify_s(dn, modifications)
+            logger.info(f"Successfully updated user {username} in LDAP.")
+        else:
+            logger.info(f"User {username} already up to date in LDAP.")
         return True
+
     except ldap.NO_SUCH_OBJECT:
         # Doesn't exist, create
         if not raw_password:
